@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BlogPost } from "@/types/blog";
 import { savePost } from "@/lib/history";
+import { downloadAsWord, copyForNaverBlog } from "@/lib/export";
 
 function MarkdownRenderer({ content }: { content: string }) {
   const html = content
@@ -42,7 +43,7 @@ export default function ResultPage() {
   const searchParams = useSearchParams();
   const fromHistory = searchParams.get("from") === "history";
   const [post, setPost] = useState<BlogPost | null>(null);
-  const [copied, setCopied] = useState<"md" | "html" | null>(null);
+  const [htmlCopied, setHtmlCopied] = useState(false);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("blogResult");
@@ -52,20 +53,17 @@ export default function ResultPage() {
     savePost(parsed); // 자동 저장
   }, [router]);
 
-  function copyMarkdown() {
+  async function handleWordDownload() {
     if (!post) return;
-    navigator.clipboard.writeText(post.content);
-    setCopied("md");
-    setTimeout(() => setCopied(null), 2000);
+    await downloadAsWord(post.content, post.topic);
   }
 
-  function downloadMarkdown() {
+  async function handleHtmlCopy() {
     if (!post) return;
-    const blob = new Blob([post.content], { type: "text/markdown" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${post.topic.slice(0, 40).replace(/\s+/g, "-")}.md`;
-    a.click();
+    await copyForNaverBlog(post.content);
+    setHtmlCopied(true);
+    setTimeout(() => setHtmlCopied(false), 3000);
+    window.open("https://www.tistory.com/", "_blank");
   }
 
   if (!post) {
@@ -88,16 +86,16 @@ export default function ResultPage() {
         </div>
         <div className="flex gap-2 shrink-0">
           <button
-            onClick={copyMarkdown}
+            onClick={handleWordDownload}
             className="text-sm border rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
           >
-            {copied === "md" ? "✓ 복사됨" : "MD 복사"}
+            Word 다운로드
           </button>
           <button
-            onClick={downloadMarkdown}
+            onClick={handleHtmlCopy}
             className="text-sm border rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
           >
-            다운로드
+            {htmlCopied ? "✓ 복사됨 — 에디터에 붙여넣기" : "HTML 발행"}
           </button>
           {fromHistory ? (
             <button
